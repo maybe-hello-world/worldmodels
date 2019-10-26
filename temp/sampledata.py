@@ -1,19 +1,20 @@
 import gym
 import pickle
 from tqdm import tqdm
+from worldmodels.envwrappers import PreprocessBreakout
 
 env = gym.make("Breakout-v0")
+env = PreprocessBreakout(env)
 
 obses = []
-games = 20
-for i in tqdm(range(games)):
-    obs = env.reset()
-    while True:
-        obses.append(obs)
-        act = env.action_space.sample()
-        obs, rew, done, _ = env.step(act)
-        if done:
-            break
+frames = 10000
+obs = env.reset()
+for i in tqdm(range(frames)):
+    obses.append(obs)
+    act = env.action_space.sample()
+    obs, rew, done, _ = env.step(act)
+    if done:
+        obs = env.reset()
 
 env.close()
 

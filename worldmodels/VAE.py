@@ -116,3 +116,14 @@ class VAE(nn.Module):
 
                 losses.append(loss.item())
         return losses
+
+    def save_model(self, path):
+        torch.save(self.state_dict(), path)
+
+    @staticmethod
+    def load_model(path, *args, **kwargs):
+        state_dict = torch.load(path)
+        vae = VAE(*args, **kwargs)
+        vae.load_state_dict(state_dict=state_dict)
+        return vae
+

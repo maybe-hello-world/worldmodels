@@ -18,5 +18,5 @@ for i in tqdm(range(frames)):
 
 env.close()
 
-with open('binary_data/frames_carracing.pkl', 'wb') as f:
+with open('binary_data/1.frames_carracing.pkl', 'wb') as f:
     pickle.dump(obses, f)

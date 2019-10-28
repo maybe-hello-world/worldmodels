@@ -1,5 +1,5 @@
 import random
-from typing import List, Any
+from typing import List, Any, Tuple
 
 import torch
 import torch.nn as nn
@@ -25,6 +25,7 @@ class MDNRNN(nn.Module):
         :param dist_amount: amount of modelled distributions
         """
         super().__init__()
+        self.device = torch.device("cpu")#"cuda" if torch.cuda.is_available() else "cpu")
 
         self.z_dim_size = z_dim_size
         self.action_size = action_size
@@ -36,12 +37,12 @@ class MDNRNN(nn.Module):
         # mu & sigma for each z_dim_size distribution * amount of distributions + pi (distribution mix coefficients)
         self.mdn = nn.Linear(self.hidden_size, 2 * self.z_dim_size * self.dist_amount + self.dist_amount)
 
-    def forward(self, actions: torch.Tensor, z_dim: torch.Tensor):
+    def forward(self, actions: torch.Tensor, z_dim: torch.Tensor, hidden: Tuple[torch.Tensor, torch.Tensor]):
         seq_size, batch_size = actions.size(0), actions.size(1)
 
         inp = torch.cat([actions, z_dim], dim=-1)     # just glue them into one vector
-        hidden_state, _ = self.rnn(inp)     # get just hidden state
-        mdn_out = self.mdn(hidden_state)
+        out, hidden = self.rnn(inp, hidden)     # get just hidden state
+        mdn_out = self.mdn(out)
 
         point = self.z_dim_size * self.dist_amount
 
@@ -59,7 +60,7 @@ class MDNRNN(nn.Module):
         pis = mdn_out[:, :, point:point+self.dist_amount]
         pis = f.log_softmax(pis, dim=-1)
 
-        return mus, sigmas, pis
+        return mus, sigmas, pis, hidden
 
     def calculate_loss(self, true_y: torch.Tensor, mus: torch.Tensor, sigmas: torch.Tensor, pis: torch.Tensor):
         true_y = true_y.unsqueeze(-2)   # ????
@@ -78,28 +79,52 @@ class MDNRNN(nn.Module):
 
         return -torch.mean(max_lp.squeeze() + torch.log(probs)) / self.z_dim_size
 
-    def train_model(self, games: List[List[torch.Tensor]], epochs: int = 1) -> List[float]:
+    def train_model(self, games: List[List[torch.Tensor]], epochs: int = 1, batch_size: int = 1) -> List[float]:
         """
         Train current model
 
         :param games: list of rollouts (each rollout - list of states (tensors))
         :param epochs: amount of epochs
+        :param batch_size: batch size for rnn
         :return: loss history
         """
+        self.to(self.device)
         losses = []
         opt = Adam(self.parameters())
         for i in range(epochs):
             random.shuffle(games)
-            for g, rollout in enumerate(games):
-                for frame in tqdm(rollout, desc=f"Epoch {i+1}/{epochs}, game {g+1}/{len(games)}"):
+            for g in range(len(games) // batch_size):
+
+                # oh shit: rollouts to batcр rollouts + unsqueeze + to cuda
+                batch_rollout = games[g * batch_size:(g+1)*batch_size]
+                batch_rollout = [
+                    [d[b] for d in batch_rollout]
+                    for b
+                    in range(len(batch_rollout[0]))
+                ]
+                batch_rollout = [
+                    (
+                        (torch.stack([c[0] for c in b], dim=-2).to(self.device)),
+                        (torch.stack([torch.from_numpy(c[1]).float().unsqueeze(0) for c in b], dim=-2).to(self.device)),
+                        (torch.stack([c[2] for c in b], dim=-2)).to(self.device)
+                     )
+                    for b
+                    in batch_rollout
+                ]
+                # end of oh shit
+
+                hidden = (
+                    torch.zeros((1, batch_size, self.hidden_size)).to(self.device),
+                    torch.zeros((1, batch_size, self.hidden_size)).to(self.device)
+                )
+                for frame in tqdm(batch_rollout, desc=f"Epoch {i+1}/{epochs}, game {g+1}/{len(games) // batch_size}"):
                     opt.zero_grad()
                     z_dim, acts, next_z_dim = frame
-                    acts = torch.from_numpy(acts).float().unsqueeze(0).unsqueeze(0)
-                    z_dim = z_dim.unsqueeze(0)
-                    mus, sigmas, pis = self.forward(acts, z_dim)
+                    mus, sigmas, pis, hidden = self.forward(acts, z_dim, hidden)
                     loss = self.calculate_loss(next_z_dim, mus, sigmas, pis)
                     loss.backward()
                     opt.step()
+                    hidden = (hidden[0].detach(), hidden[1].detach())
                     losses.append(loss.item())
         return losses
 

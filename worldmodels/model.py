@@ -15,7 +15,14 @@ class MDNRNN(nn.Module):
     def __call__(self, *inp, **kwargs) -> Any:
         return super().__call__(*inp, **kwargs)
 
-    def __init__(self, z_dim_size: int = 32, action_size: int = 3, hidden_size: int = 256, dist_amount: int = 5):
+    def __init__(
+            self,
+            z_dim_size: int = 32,
+            action_size: int = 3,
+            hidden_size: int = 256,
+            dist_amount: int = 5,
+            device: str = "cpu"
+    ):
         """
         MDN network
 
@@ -25,7 +32,7 @@ class MDNRNN(nn.Module):
         :param dist_amount: amount of modelled distributions
         """
         super().__init__()
-        self.device = torch.device("cpu")#"cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(device)
 
         self.z_dim_size = z_dim_size
         self.action_size = action_size
@@ -36,6 +43,7 @@ class MDNRNN(nn.Module):
 
         # mu & sigma for each z_dim_size distribution * amount of distributions + pi (distribution mix coefficients)
         self.mdn = nn.Linear(self.hidden_size, 2 * self.z_dim_size * self.dist_amount + self.dist_amount)
+        self.to(self.device)
 
     def forward(self, actions: torch.Tensor, z_dim: torch.Tensor, hidden: Tuple[torch.Tensor, torch.Tensor]):
         """
@@ -100,7 +108,6 @@ class MDNRNN(nn.Module):
         :param batch_size: batch size for rnn
         :return: loss history
         """
-        self.to(self.device)
         losses = []
         opt = Adam(self.parameters())
         for i in range(epochs):
@@ -137,7 +144,7 @@ class MDNRNN(nn.Module):
                     loss.backward()
                     opt.step()
                     hidden = (hidden[0].detach(), hidden[1].detach())
-                    losses.append(loss.item())
+                    losses.append(loss.cpu().item())
         return losses
 
     def save_model(self, path):

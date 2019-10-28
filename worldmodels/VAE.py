@@ -22,9 +22,11 @@ class VAE(nn.Module):
             image_height: int = 56,
             image_width: int = 64,
             image_channels: int = 3,
-            z_dim: int = 32
+            z_dim: int = 32,
+            device: str = "cpu"
     ):
         super().__init__()
+        self.device = device
         self.h = image_height
         self.w = image_width
         self.c = image_channels
@@ -42,7 +44,10 @@ class VAE(nn.Module):
         self.de_deconv2 = nn.ConvTranspose2d(in_channels=128, out_channels=64, kernel_size=2, stride=2)
         self.de_deconv3 = nn.ConvTranspose2d(in_channels=64, out_channels=self.c, kernel_size=2, stride=2)
 
+        self.to(self.device)
+
     def encode(self, x: torch.Tensor):
+        x = x.to(self.device)
         x = f.relu(self.en_cnn1(x))
         x = f.relu(self.en_cnn2(x))
         x = f.relu(self.en_cnn3(x))
@@ -54,6 +59,7 @@ class VAE(nn.Module):
         return mu, logstd
 
     def decode(self, x: torch.Tensor):
+        x = x.to(self.device)
         x = f.relu(self.de_dense1(x))
         x = x.view(-1, 256, 7, 7)
         x = f.relu(self.de_deconv1(x))
@@ -70,6 +76,7 @@ class VAE(nn.Module):
             return mu   # inference time
 
     def forward(self, x: torch.Tensor):
+        x = x.to(self.device)
         mu, logstd = self.encode(x)
         z = self.reparameterize(mu, logstd)
         z = self.decode(z)
@@ -100,7 +107,7 @@ class VAE(nn.Module):
                 loss.backward()
                 opt.step()
 
-                losses.append(loss.item())
+                losses.append(loss.cpu().item())
         return losses
 
     def save_model(self, path):

@@ -95,7 +95,7 @@ class MDNRNN(nn.Module):
             random.shuffle(games)
             for g in range(len(games) // batch_size):
 
-                # oh shit: rollouts to batcр rollouts + unsqueeze + to cuda
+                # oh shit: rollouts to batch rollouts + unsqueeze + to cuda
                 batch_rollout = games[g * batch_size:(g+1)*batch_size]
                 batch_rollout = [
                     [d[b] for d in batch_rollout]

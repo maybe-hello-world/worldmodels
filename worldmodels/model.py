@@ -99,6 +99,13 @@ class MDNRNN(nn.Module):
         max_mu = mus[max_pi]
         return max_mu
 
+    def init_state(self, batch_size: int = 1):
+        return (
+            torch.zeros((1, batch_size, self.hidden_size)).to(self.device),
+            torch.zeros((1, batch_size, self.hidden_size)).to(self.device)
+        )
+
+
     def train_model(self, games: List[List[torch.Tensor]], epochs: int = 1, batch_size: int = 1) -> List[float]:
         """
         Train current model

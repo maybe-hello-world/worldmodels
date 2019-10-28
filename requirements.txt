@@ -1,0 +1,8 @@
+gym[box2d]
+matplotlib
+seaborn
+numpy
+pytorch
+torchvision
+tqdm
+cma

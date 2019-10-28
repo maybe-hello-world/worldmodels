@@ -110,6 +110,10 @@ class VAE(nn.Module):
                 losses.append(loss.cpu().item())
         return losses
 
+    def play_encode(self, obs: torch.Tensor) -> torch.Tensor:
+        obs = to_tensor(obs).unsqueeze(0).float()
+        return self.reparameterize(*self.encode(obs)).squeeze()
+
     def save_model(self, path):
         torch.save(self.state_dict(), path)
 

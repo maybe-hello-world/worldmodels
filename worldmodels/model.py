@@ -1,6 +1,8 @@
 import random
 from typing import List, Any, Tuple
 
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
@@ -75,6 +77,17 @@ class MDNRNN(nn.Module):
 
         return mus, sigmas, pis, hidden
 
+    def play_predict(
+            self,
+            actions: np.ndarray,
+            z_dim: torch.Tensor,
+            hidden: Tuple[torch.Tensor, torch.Tensor]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        actions = torch.from_numpy(actions).float().unsqueeze(0).unsqueeze(0).to(self.device)
+        z_dim = z_dim.unsqueeze(0).unsqueeze(0)
+        _, _, _, hidden = self.forward(actions, z_dim, hidden)
+        return hidden
+
     def calculate_loss(self, true_y: torch.Tensor, mus: torch.Tensor, sigmas: torch.Tensor, pis: torch.Tensor):
         true_y = true_y.unsqueeze(-2)   # ????
 
@@ -104,7 +117,6 @@ class MDNRNN(nn.Module):
             torch.zeros((1, batch_size, self.hidden_size)).to(self.device),
             torch.zeros((1, batch_size, self.hidden_size)).to(self.device)
         )
-
 
     def train_model(self, games: List[List[torch.Tensor]], epochs: int = 1, batch_size: int = 1) -> List[float]:
         """

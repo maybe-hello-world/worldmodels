@@ -31,16 +31,21 @@ class Controller(nn.Module):
         self.fc2 = nn.Linear(self.neurons, self.actions_size)
         self.to(self.device)
 
-    def forward(self, z_state: torch.Tensor, h_state: torch.Tensor):
+    def forward(self, z_state: torch.Tensor, h_state: torch.Tensor) -> torch.Tensor:
         """
         :param z_state: z_state from VAE, shape: 1x32
         :param h_state: h_state from VAE, shape: 1x256
         :return: action
         """
-        x = torch.cat([z_state, h_state], dim=-1).to(self.device)
+        h_state = h_state[0].squeeze()  # use only hidden, throw out cell state
+        x = torch.cat([z_state, h_state], dim=-1).unsqueeze(0).to(self.device)
         x = f.tanh(self.fc1(x))
         x = self.fc2(x)
         return x
+
+    def play_act(self, z_state: torch.Tensor, h_state: torch.Tensor):
+        return self.forward(z_state, h_state).detach().squeeze().numpy()
+
 
     def save_model(self, path):
         torch.save(self.state_dict(), path)

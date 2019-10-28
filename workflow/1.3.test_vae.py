@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import random
 
 
-vae = VAE.load_model("binary_data/vae.pkl", z_dim=32, image_height=42, image_width=48)
+vae = VAE.load_model("binary_data/vae.pkl")
 frames = 3
 with open("binary_data/1.frames_carracing.pkl", 'rb') as f:
     obses = pickle.load(f)

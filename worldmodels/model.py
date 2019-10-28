@@ -38,6 +38,11 @@ class MDNRNN(nn.Module):
         self.mdn = nn.Linear(self.hidden_size, 2 * self.z_dim_size * self.dist_amount + self.dist_amount)
 
     def forward(self, actions: torch.Tensor, z_dim: torch.Tensor, hidden: Tuple[torch.Tensor, torch.Tensor]):
+        """
+        :param actions: tensor of shape: (1, batch_size, actions_size)
+        :param z_dim: tensor of shape: (1, batch_size, z_dim_size)
+        :param hidden: tuple of tensors: ((1, batch_size, hidden_size), (1, batch_size, hidden_size))
+        """
         seq_size, batch_size = actions.size(0), actions.size(1)
 
         inp = torch.cat([actions, z_dim], dim=-1)     # just glue them into one vector
@@ -78,6 +83,13 @@ class MDNRNN(nn.Module):
         probs = torch.sum(g_probs, dim=-1)
 
         return -torch.mean(max_lp.squeeze() + torch.log(probs)) / self.z_dim_size
+
+    def get_eval(self, mus: torch.Tensor, pis: torch.Tensor):
+        mus = mus.squeeze().detach()
+        pis = pis.squeeze().detach()
+        max_pi = torch.argmax(pis)
+        max_mu = mus[max_pi]
+        return max_mu
 
     def train_model(self, games: List[List[torch.Tensor]], epochs: int = 1, batch_size: int = 1) -> List[float]:
         """

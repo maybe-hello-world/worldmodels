@@ -15,6 +15,7 @@ vae = VAE()
 params, size = get_model_params_size(vae)
 print(f"Params: {params}, approximately {size} Mb")
 
+# TODO: add horizontal flips
 vae_l = vae.train_model(frames, epochs=5, batch_size=64)
 vae.save_model("binary_data/vae.pkl")
 

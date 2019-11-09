@@ -59,35 +59,42 @@ class Controller(nn.Module):
             state_dim: int = 32,
             hidden_dim: int = 256,
             action_dim: int = 3,
+            actor_opt_lr: float = 1e-3,
+            critic_opt_lr: float = 1e-3,
+            mem_len: int = 10**5,
+            noise_scale: float = 0.1,
+            soft_update_scale: float = 0.001,
             device: str = "cpu"
     ):
         super().__init__()
+        self.soft_update_scale = soft_update_scale
         self.device = torch.device(device)
-        self.memory = deque(maxlen=100000)
+        self.memory = deque(maxlen=mem_len)
 
         self.actor = Actor(state_dim=state_dim, hidden_dim=hidden_dim, action_dim=action_dim, device=device)
         self.tactor = Actor(state_dim=state_dim, hidden_dim=hidden_dim, action_dim=action_dim, device=device)
-        self.aopt = torch.optim.Adam(self.actor.parameters())
+        self.aopt = torch.optim.Adam(self.actor.parameters(), lr=actor_opt_lr)
 
         self.critic = Critic(state_dim=state_dim, hidden_dim=hidden_dim, action_dim=action_dim, device=device)
         self.tcritic = Critic(state_dim=state_dim, hidden_dim=hidden_dim, action_dim=action_dim, device=device)
-        self.copt = torch.optim.Adam(self.critic.parameters())
+        self.copt = torch.optim.Adam(self.critic.parameters(), lr=critic_opt_lr)
 
         self.hard_update()
 
-        self.noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(action_dim), sigma=0.1 * np.ones(action_dim))
+        self.noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(action_dim), sigma=noise_scale * np.ones(action_dim))
+        self.to(self.device)
 
     def reset_noise(self):
         self.noise.reset()
 
     def soft_update(self):
-        def supdate(target: nn.Module, source: nn.Module, tau: float = 0.001):
+        def supdate(target: nn.Module, source: nn.Module, tau):
             for target_param, param in zip(target.parameters(), source.parameters()):
                 target_param.data.copy_(
                     target_param.data * (1.0 - tau) + param.data * tau
                 )
-        supdate(self.tactor, self.actor)
-        supdate(self.tcritic, self.critic)
+        supdate(self.tactor, self.actor, self.soft_update_scale)
+        supdate(self.tcritic, self.critic, self.soft_update_scale)
 
     def hard_update(self):
         self.tactor.load_state_dict(self.actor.state_dict())

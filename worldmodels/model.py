@@ -83,10 +83,11 @@ class MDNRNN(nn.Module):
             z_dim: torch.Tensor,
             hidden: Tuple[torch.Tensor, torch.Tensor]
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        actions = torch.from_numpy(actions).float().unsqueeze(0).unsqueeze(0).to(self.device)
-        z_dim = z_dim.unsqueeze(0).unsqueeze(0)
-        _, _, _, hidden = self.forward(actions, z_dim, hidden)
-        return hidden
+        with torch.no_grad():
+            actions = torch.from_numpy(actions).float().unsqueeze(0).unsqueeze(0).to(self.device)
+            z_dim = z_dim.unsqueeze(0).unsqueeze(0)
+            _, _, _, hidden = self.forward(actions, z_dim, hidden)
+            return hidden
 
     def calculate_loss(self, true_y: torch.Tensor, mus: torch.Tensor, sigmas: torch.Tensor, pis: torch.Tensor):
         true_y = true_y.unsqueeze(-2)   # ????
